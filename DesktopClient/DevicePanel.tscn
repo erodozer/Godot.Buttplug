@@ -1,0 +1,179 @@
+[gd_scene load_steps=2 format=2]
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends PanelContainer
+
+const ButtplugDevice = preload(\"res://lib/ButtplugDevice.gd\")
+
+var device: ButtplugDevice
+
+# Called when the node enters the scene tree for the first time.
+func _ready():
+	get_node(\"VBoxContainer/DeviceName\").text = device.device_name
+	
+	if device.is_vibrator:
+		get_node(\"VBoxContainer/VibrateFeature\").visible = true
+		get_node(\"VBoxContainer/VibrateFeature/Details\").text = \"Vibrators: %d - Vibration Steps: %d\" % [device._vibrate.count, device._vibrate.step_count[0]]
+		
+		get_node(\"VBoxContainer/VibrateFeature/AllControl/HSlider\").max_value = device._vibrate.step_count[0]
+		
+		for control in range(device._vibrate.count):
+			var vbox = VBoxContainer.new()
+			var l = Label.new()
+			l.text = \"Vibrator %d Speed\" % [control + 1]
+			vbox.add_child(l)
+			
+			var slider = HSlider.new()
+			slider.max_value = device._vibrate.step_count[control]
+			slider.connect(\"value_changed\", self, \"vibrate\", [control])
+			vbox.add_child(slider)
+			get_node(\"VBoxContainer/VibrateFeature\").add_child(vbox)
+
+	if device.is_stroker:
+		get_node(\"VBoxContainer/LinearFeature\").visible = true
+		get_node(\"VBoxContainer/LinearFeature/Details\").text = \"Linear Elements: %d\" % [device._linear.count]
+		
+		for control in range(device._linear.count):
+			var vbox = VBoxContainer.new()
+			var l = Label.new()
+			l.text = \"Linear Oscillation Min Position\"
+			vbox.add_child(l)
+			
+			var min_slider = HSlider.new()
+			min_slider.max_value = 100
+			vbox.add_child(min_slider)
+			
+			var l2 = Label.new()
+			l2.text = \"Linear Oscillation Max Position\"
+			vbox.add_child(l2)
+			
+			var max_slider = HSlider.new()
+			max_slider.max_value = 100
+			max_slider.value = 100
+			vbox.add_child(max_slider)
+			
+			get_node(\"VBoxContainer/LinearFeature/Axis\").add_child(vbox)
+
+func vibrate(value, idx):
+	var intensity = inverse_lerp(0, device._vibrate.step_count[idx], value)
+	device.do_vibrate(intensity, idx)
+
+func linear(value, axis):
+	var position = inverse_lerp(0, 100, value)
+	device.do_linear(position, axis, 1000)
+
+func _process(_delta):
+	if device.is_stroker:
+		var enabled = get_node(\"VBoxContainer/LinearFeature/Oscillation/RunOscillate\").pressed
+		if enabled:
+			yield(oscillate(), \"completed\")
+		
+func oscillate():
+	var duration = get_node(\"VBoxContainer/LinearFeature/Oscillation/DurationControl\").value
+	var min_position = get_node(\"VBoxContainer/LinearFeature/Axis\").get_child(0).get_child(1).value
+	var max_position = get_node(\"VBoxContainer/LinearFeature/Axis\").get_child(0).get_child(3).value
+	set_process(false)
+	yield(device.do_linear(inverse_lerp(0, 100, max_position), 0, duration / 2.0), \"completed\")
+	yield(device.do_linear(inverse_lerp(0, 100, min_position), 0, duration / 2.0), \"completed\")
+	set_process(true)
+	
+"
+
+[node name="Device" type="PanelContainer"]
+margin_right = 746.0
+margin_bottom = 102.0
+script = SubResource( 1 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+margin_left = 7.0
+margin_top = 7.0
+margin_right = 739.0
+margin_bottom = 95.0
+
+[node name="DeviceName" type="Label" parent="VBoxContainer"]
+margin_right = 732.0
+margin_bottom = 14.0
+text = "Device"
+
+[node name="VibrateFeature" type="VBoxContainer" parent="VBoxContainer"]
+visible = false
+margin_top = 18.0
+margin_right = 732.0
+margin_bottom = 88.0
+
+[node name="Title" type="Label" parent="VBoxContainer/VibrateFeature"]
+margin_right = 732.0
+margin_bottom = 14.0
+text = "Vibration Control"
+
+[node name="Details" type="Label" parent="VBoxContainer/VibrateFeature"]
+margin_top = 18.0
+margin_right = 732.0
+margin_bottom = 32.0
+text = "Vibrators: 2 - Vibration Steps: 65535"
+
+[node name="AllControl" type="VBoxContainer" parent="VBoxContainer/VibrateFeature"]
+margin_top = 36.0
+margin_right = 732.0
+margin_bottom = 70.0
+
+[node name="Label" type="Label" parent="VBoxContainer/VibrateFeature/AllControl"]
+margin_right = 732.0
+margin_bottom = 14.0
+text = "Vibration Speed for All Vibration Elements"
+
+[node name="HSlider" type="HSlider" parent="VBoxContainer/VibrateFeature/AllControl"]
+margin_top = 18.0
+margin_right = 732.0
+margin_bottom = 34.0
+ticks_on_borders = true
+
+[node name="LinearFeature" type="VBoxContainer" parent="VBoxContainer"]
+visible = false
+margin_top = 18.0
+margin_right = 732.0
+margin_bottom = 120.0
+
+[node name="Title" type="Label" parent="VBoxContainer/LinearFeature"]
+margin_right = 732.0
+margin_bottom = 14.0
+text = "Linear/Stroking Control"
+
+[node name="Details" type="Label" parent="VBoxContainer/LinearFeature"]
+margin_top = 18.0
+margin_right = 732.0
+margin_bottom = 32.0
+text = "Axis: 1"
+
+[node name="Axis" type="VBoxContainer" parent="VBoxContainer/LinearFeature"]
+margin_top = 36.0
+margin_right = 732.0
+margin_bottom = 36.0
+
+[node name="Oscillation" type="VBoxContainer" parent="VBoxContainer/LinearFeature"]
+margin_right = 40.0
+margin_bottom = 40.0
+
+[node name="Label" type="Label" parent="VBoxContainer/LinearFeature/Oscillation"]
+margin_top = 40.0
+margin_right = 732.0
+margin_bottom = 54.0
+text = "Linear Oscillation Duration (in Milliseconds)"
+
+[node name="DurationControl" type="HSlider" parent="VBoxContainer/LinearFeature/Oscillation"]
+margin_top = 58.0
+margin_right = 732.0
+margin_bottom = 74.0
+max_value = 2000.0
+value = 1000.0
+
+[node name="RunOscillate" type="CheckBox" parent="VBoxContainer/LinearFeature/Oscillation"]
+margin_top = 78.0
+margin_right = 732.0
+margin_bottom = 102.0
+text = "Run Oscillations"
+
+[connection signal="value_changed" from="VBoxContainer/VibrateFeature/AllControl/HSlider" to="." method="vibrate" binds= [ -1 ]]
